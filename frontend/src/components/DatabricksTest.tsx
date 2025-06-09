@@ -157,20 +157,30 @@ const DatabricksTest: React.FC = () => {
   };
 
   const testWeatherFunction = async () => {
+    if (!location) {
+      addTestResult('❌ Need location for weather function test');
+      return;
+    }
+
     setLoading(true);
     addTestResult('🌤️ Testing weather function...');
+    addTestResult(`📍 Using location: ${location.city}, ${location.state}`);
 
     try {
-      const result = await DatabricksService.testWeatherFunction('New York');
+      const city = location.city || location.state || 'Unknown Location';
+      const result = await DatabricksService.testWeatherFunction(city);
       
       if (result.error) {
         addTestResult(`⚠️ Weather function issues detected:`);
-        addTestResult(`   Function: ${result.functionName}`);
-        addTestResult(`   Issue: ${result.issue}`);
-        addTestResult(`   Details: ${result.details}`);
+        addTestResult(`   Function: ${result.functionName || 'get_weather'}`);
+        addTestResult(`   Issue: ${result.issue || 'Implementation error'}`);
+        addTestResult(`   Details: ${result.details || result.message || 'No details available'}`);
+        
+        // Show full error response for debugging
+        addTestResult(`🔍 Full response: ${JSON.stringify(result, null, 2)}`);
       } else {
         addTestResult(`✅ Weather function working`);
-        addTestResult(`🌡️ Response received: ${JSON.stringify(result).substring(0, 100)}...`);
+        addTestResult(`🌡️ Full response: ${JSON.stringify(result, null, 2)}`);
       }
     } catch (error: any) {
       if (error.message && error.message.includes('CORS Error')) {
@@ -215,25 +225,24 @@ const DatabricksTest: React.FC = () => {
               <p><strong>Workspace:</strong> {status.workspace || 'Not set'}</p>
               <p><strong>Endpoint:</strong> {status.endpoint || 'Not set'}</p>
               <p><strong>Token:</strong> {status.hasToken ? '✅ Present' : '❌ Missing'}</p>
-              <p><strong>Mode:</strong> {process.env.REACT_APP_USE_DATABRICKS_PROXY === 'true' ? '🔄 Proxy (port 3001)' : '🌐 Direct'}</p>
+              <p><strong>Mode:</strong> 🖥️ Backend API (port 3001)</p>
+              <p><strong>API URL:</strong> {process.env.REACT_APP_API_BASE_URL || 'http://localhost:3001/api'}</p>
             </div>
           )}
 
-          {process.env.REACT_APP_USE_DATABRICKS_PROXY !== 'true' && (
-            <div style={{
-              backgroundColor: '#fff3cd',
-              padding: '8px',
-              borderRadius: '4px',
-              marginTop: '8px',
-              fontSize: '12px'
-            }}>
-              <p><strong>💡 CORS Issues?</strong></p>
-              <p>If tests fail with CORS errors:</p>
-              <p>1. Run: <code>node proxy-server.js</code></p>
-              <p>2. Set: <code>REACT_APP_USE_DATABRICKS_PROXY=true</code></p>
-              <p>3. Restart React app</p>
-            </div>
-          )}
+          <div style={{
+            backgroundColor: '#e7f3ff',
+            padding: '8px',
+            borderRadius: '4px',
+            marginTop: '8px',
+            fontSize: '12px'
+          }}>
+            <p><strong>ℹ️ Backend API Mode</strong></p>
+            <p>All Databricks calls go through backend server</p>
+            <p>✅ No CORS issues</p>
+            <p>✅ Secure token handling</p>
+            <p>Start backend: <code>npm run server</code></p>
+          </div>
 
           <h3>🌍 Test Location</h3>
           {location ? (

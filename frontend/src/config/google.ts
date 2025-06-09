@@ -9,7 +9,9 @@ export const GOOGLE_CONFIG = {
     'profile',
     'email',
     'https://www.googleapis.com/auth/userinfo.profile',
-    'https://www.googleapis.com/auth/userinfo.email'
+    'https://www.googleapis.com/auth/userinfo.email',
+    'https://www.googleapis.com/auth/user.birthday.read',
+    'https://www.googleapis.com/auth/user.gender.read'
   ],
   
   // Redirect URI (will be configured in Google Cloud Console)
@@ -36,5 +38,6 @@ export const GOOGLE_MAPS_CONFIG = {
 export const GOOGLE_OAUTH_URLS = {
   AUTHORIZATION: 'https://accounts.google.com/o/oauth2/v2/auth',
   TOKEN: 'https://oauth2.googleapis.com/token',
-  USER_INFO: 'https://www.googleapis.com/oauth2/v2/userinfo'
+  USER_INFO: 'https://www.googleapis.com/oauth2/v2/userinfo',
+  PEOPLE_API: 'https://people.googleapis.com/v1/people/me'
 };

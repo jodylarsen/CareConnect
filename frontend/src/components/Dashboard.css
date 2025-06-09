@@ -67,10 +67,27 @@
   font-size: 1.5rem;
 }
 
+.user-details {
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
+}
+
 .user-info p {
-  margin: 0.25rem 0 0 0;
+  margin: 0;
   color: #666;
   font-size: 0.9rem;
+}
+
+.user-demographics {
+  color: #888;
+  font-size: 0.85rem;
+  font-style: italic;
+}
+
+.user-demographics .separator {
+  margin: 0 0.5rem;
+  color: #ccc;
 }
 
 .logout-btn {

@@ -39,7 +39,6 @@ export interface DatabricksConfig {
   token: string;
   workspace: string;
   agentEndpoint: string;
-  useProxy?: boolean;
 }
 
 class DatabricksService {
@@ -51,13 +50,11 @@ class DatabricksService {
     this.config = {
       token: process.env.REACT_APP_DATABRICKS_TOKEN || '',
       workspace: process.env.REACT_APP_DATABRICKS_WORKSPACE || '',
-      agentEndpoint: process.env.REACT_APP_DATABRICKS_AGENT_ENDPOINT || '',
-      useProxy: process.env.REACT_APP_USE_DATABRICKS_PROXY === 'true'
+      agentEndpoint: process.env.REACT_APP_DATABRICKS_AGENT_ENDPOINT || ''
     };
     
-    this.baseUrl = this.config.useProxy 
-      ? 'http://localhost:3001/api/databricks'
-      : `https://${this.config.workspace}/serving-endpoints/${this.config.agentEndpoint}/invocations`;
+    // Always use backend API endpoints - no more direct browser calls
+    this.baseUrl = process.env.REACT_APP_API_BASE_URL || 'http://localhost:3001/api';
   }
 
   public static getInstance(): DatabricksService {
@@ -72,35 +69,26 @@ class DatabricksService {
    */
   public async testConnection(): Promise<boolean> {
     try {
-      console.log('Testing connection to:', this.baseUrl);
-      console.log('With token:', this.config.token ? 'Present (length: ' + this.config.token.length + ')' : 'Missing');
+      console.log('Testing connection via backend API:', `${this.baseUrl}/databricks/test`);
       
-      const response = await this.makeRequest({
-        messages: [
-          {
-            role: 'user',
-            content: 'Hello, are you working?'
-          }
-        ]
+      const response = await fetch(`${this.baseUrl}/databricks/test`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        }
       });
       
-      console.log('Connection test response:', response);
+      const result = await response.json();
+      console.log('Connection test response:', result);
       
-      // Check for Databricks response format (messages array) or OpenAI format (choices array)
-      const hasValidResponse = (response.messages && response.messages.length > 0) || 
-                               (response.choices && response.choices.length > 0);
-      
-      console.log('Connection test result:', hasValidResponse ? 'SUCCESS' : 'FAILED');
-      return hasValidResponse;
-    } catch (error: any) {
-      console.error('Databricks connection test failed:', error);
-      console.error('URL attempted:', this.baseUrl);
-      
-      // Re-throw CORS errors for better handling in UI
-      if (error.message && error.message.includes('CORS Error')) {
-        throw error;
+      if (!response.ok) {
+        throw new Error(result.message || 'Backend API error');
       }
       
+      console.log('Connection test result:', result.success ? 'SUCCESS' : 'FAILED');
+      return result.success && result.connected;
+    } catch (error: any) {
+      console.error('Backend connection test failed:', error);
       return false;
     }
   }
@@ -110,34 +98,30 @@ class DatabricksService {
    */
   public async analyzeSymptoms(request: SymptomRequest): Promise<HealthcareRecommendation> {
     try {
-      const prompt = this.buildSymptomAnalysisPrompt(request);
+      console.log('Analyzing symptoms via backend API:', request.symptoms);
       
-      const response = await this.makeRequest({
-        messages: [
-          {
-            role: 'system',
-            content: 'You are a healthcare AI assistant that analyzes symptoms and provides healthcare recommendations. Always prioritize patient safety and recommend seeking emergency care when appropriate. Provide structured JSON responses.'
-          },
-          {
-            role: 'user',
-            content: prompt
-          }
-        ],
-        max_tokens: 1000,
-        temperature: 0.3
+      const response = await fetch(`${this.baseUrl}/databricks/analyze-symptoms`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(request)
       });
-
-      return this.parseHealthcareResponse(response);
+      
+      const result = await response.json();
+      console.log('Symptom analysis response received');
+      
+      if (!response.ok) {
+        throw new Error(result.message || 'Backend API error');
+      }
+      
+      return result;
     } catch (error: any) {
       console.error('Symptom analysis failed:', error);
       
-      // Check if this is a Databricks agent function error
-      if (error.message && error.message.includes('get_weather')) {
-        console.warn('Databricks agent has function calling issues, providing fallback recommendation');
-        return this.createFallbackRecommendationFromSymptoms(request);
-      }
-      
-      throw new Error(`Failed to analyze symptoms: ${error}`);
+      // Fallback to local rule-based recommendation
+      console.warn('Using local fallback recommendation');
+      return this.createFallbackRecommendationFromSymptoms(request);
     }
   }
 
@@ -264,29 +248,13 @@ Respond in JSON format with arrays for each category.
     console.log('Request headers:', headers);
 
     try {
-      let response;
-      
-      if (this.config.useProxy) {
-        // Use proxy server
-        response = await fetch(this.baseUrl, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            token: this.config.token,
-            workspace: this.config.workspace,
-            endpoint: this.config.agentEndpoint,
-            payload: payload
-          })
-        });
-      } else {
-        // Direct request to Databricks
-        response = await fetch(this.baseUrl, {
-          method: 'POST',
-          headers: headers,
-          body: JSON.stringify(payload),
-          mode: 'cors'
-        });
-      }
+      // Direct request to backend API
+      const response = await fetch(this.baseUrl, {
+        method: 'POST',
+        headers: headers,
+        body: JSON.stringify(payload),
+        mode: 'cors'
+      });
 
       console.log('Response status:', response.status);
       console.log('Response headers:', Object.fromEntries(response.headers.entries()));
@@ -600,32 +568,26 @@ IMPORTANT: Always err on the side of caution. If there are any concerning sympto
    */
   public async testWeatherFunction(city: string): Promise<any> {
     try {
-      console.log(`Testing weather function for city: ${city}`);
+      console.log(`Testing weather function via backend API for city: ${city}`);
       
-      const response = await this.makeRequest({
-        messages: [
-          {
-            role: 'user',
-            content: `What's the weather like in ${city}?`
-          }
-        ]
+      const response = await fetch(`${this.baseUrl}/databricks/weather-test`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ city })
       });
       
-      console.log('Weather function response:', response);
-      return response;
-    } catch (error: any) {
-      console.error('Weather function test failed:', error);
+      const result = await response.json();
+      console.log('Weather function response:', result);
       
-      // If it's the missing city argument error, that confirms the function exists
-      if (error.message && error.message.includes('get_weather') && error.message.includes('missing')) {
-        return {
-          error: 'Function exists but has implementation issues',
-          details: error.message,
-          functionName: 'get_weather',
-          issue: 'Missing required city argument in function definition'
-        };
+      if (!response.ok && !result.error) {
+        throw new Error(result.message || 'Backend API error');
       }
       
+      return result;
+    } catch (error: any) {
+      console.error('Weather function test failed:', error);
       throw error;
     }
   }

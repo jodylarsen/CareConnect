@@ -1,0 +1,89 @@
+# Databricks App Configuration for CareConnect Healthcare Platform
+# This configuration deploys the React frontend as a Databricks App
+
+# Command to serve the React application
+command:
+  - python
+  - -m
+  - http.server
+  - "8080"
+  - "--directory"
+  - "frontend/build"
+
+# Environment variables for the application
+env:
+  # React build environment
+  - name: "NODE_ENV"
+    value: "production"
+  
+  # CareConnect application settings
+  - name: "REACT_APP_NAME"
+    value: "CareConnect"
+  
+  - name: "REACT_APP_VERSION"
+    value: "1.0.0"
+  
+  # API endpoints - configure for Databricks workspace
+  - name: "REACT_APP_API_BASE_URL"
+    value: "${DATABRICKS_WORKSPACE_URL}/api/v1/careconnect"
+  
+  # Databricks integration settings
+  - name: "REACT_APP_DATABRICKS_WORKSPACE"
+    value: "${DATABRICKS_WORKSPACE_HOSTNAME}"
+  
+  # Google Services Configuration
+  # Note: These should be configured in Databricks secrets for production
+  - name: "REACT_APP_GOOGLE_CLIENT_ID"
+    valueFrom: "google-client-id-secret"
+  
+  - name: "REACT_APP_GOOGLE_MAPS_API_KEY"
+    valueFrom: "google-maps-api-key-secret"
+  
+  # Databricks ML endpoint configuration
+  - name: "REACT_APP_DATABRICKS_TOKEN"
+    valueFrom: "databricks-token-secret"
+  
+  - name: "REACT_APP_DATABRICKS_AGENT_ENDPOINT"
+    value: "agents_team12a-default-quickstart_agent"
+
+# Application metadata
+metadata:
+  name: "CareConnect Healthcare Platform"
+  description: "AI-powered healthcare search and recommendation platform with symptom checker, provider search, and travel health planning"
+  version: "1.0.0"
+  author: "CareConnect Team"
+  tags:
+    - healthcare
+    - ai
+    - react
+    - frontend
+    - databricks
+
+# Resource requirements
+resources:
+  # Minimal resource requirements for static React app
+  memory: "512Mi"
+  cpu: "0.5"
+
+# Health check configuration
+healthCheck:
+  path: "/"
+  port: 8080
+  periodSeconds: 30
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+# Security settings
+security:
+  allowExternalAccess: true
+  cors:
+    allowOrigins:
+      - "*"
+    allowMethods:
+      - "GET"
+      - "POST"
+      - "OPTIONS"
+    allowHeaders:
+      - "Content-Type"
+      - "Authorization"
+      - "X-Requested-With"

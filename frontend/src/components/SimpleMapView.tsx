@@ -39,6 +39,44 @@ const SimpleMapView: React.FC<SimpleMapViewProps> = ({
     }
   }, [selectedProvider, map, markerProviderMap]);
 
+  const createMapInstance = () => {
+    if (!mapRef.current) {
+      setStatus('ERROR: Map container not found');
+      return;
+    }
+
+    try {
+      const defaultLocation = userLocation || { lat: 40.7128, lng: -74.0060 }; // NYC
+      const mapInstance = new google.maps.Map(mapRef.current, {
+        center: defaultLocation,
+        zoom: 13,
+        styles: [
+          {
+            featureType: 'poi.medical',
+            elementType: 'geometry',
+            stylers: [{ color: '#ffeaa7' }]
+          }
+        ]
+      });
+
+      // Add click listener for location selection
+      mapInstance.addListener('click', (event: google.maps.MapMouseEvent) => {
+        if (event.latLng && onLocationChange) {
+          const location: Location = {
+            lat: event.latLng.lat(),
+            lng: event.latLng.lng()
+          };
+          onLocationChange(location);
+        }
+      });
+
+      setMap(mapInstance);
+      setStatus('SUCCESS: Map created and displayed');
+    } catch (mapError) {
+      setStatus(`ERROR creating map: ${mapError}`);
+    }
+  };
+
   const initializeMap = async () => {
     try {
       const apiKey = process.env.REACT_APP_GOOGLE_MAPS_API_KEY;
@@ -57,43 +95,20 @@ const SimpleMapView: React.FC<SimpleMapViewProps> = ({
       script.defer = true;
 
       script.onload = () => {
-        setStatus('Google Maps script loaded, creating map...');
+        setStatus('Google Maps script loaded, waiting for API...');
         
-        if (!mapRef.current) {
-          setStatus('ERROR: Map container not found');
-          return;
-        }
-
-        try {
-          const defaultLocation = userLocation || { lat: 40.7128, lng: -74.0060 }; // NYC
-          const mapInstance = new google.maps.Map(mapRef.current, {
-            center: defaultLocation,
-            zoom: 13,
-            styles: [
-              {
-                featureType: 'poi.medical',
-                elementType: 'geometry',
-                stylers: [{ color: '#ffeaa7' }]
-              }
-            ]
-          });
-
-          // Add click listener for location selection
-          mapInstance.addListener('click', (event: google.maps.MapMouseEvent) => {
-            if (event.latLng && onLocationChange) {
-              const location: Location = {
-                lat: event.latLng.lat(),
-                lng: event.latLng.lng()
-              };
-              onLocationChange(location);
-            }
-          });
-
-          setMap(mapInstance);
-          setStatus('SUCCESS: Map created and displayed');
-        } catch (mapError) {
-          setStatus(`ERROR creating map: ${mapError}`);
-        }
+        // Wait for Google Maps API to be fully available
+        const checkApiReady = () => {
+          if (window.google && window.google.maps && window.google.maps.Map) {
+            setStatus('Google Maps API ready, creating map...');
+            createMapInstance();
+          } else {
+            setStatus('Waiting for Google Maps API...');
+            setTimeout(checkApiReady, 100);
+          }
+        };
+        
+        checkApiReady();
       };
 
       script.onerror = () => {
@@ -104,14 +119,20 @@ const SimpleMapView: React.FC<SimpleMapViewProps> = ({
       const existingScript = document.querySelector('script[src*="maps.googleapis.com"]');
       if (existingScript) {
         setStatus('Google Maps script already loaded');
-        if (window.google && window.google.maps && mapRef.current) {
-          const defaultLocation = userLocation || { lat: 40.7128, lng: -74.0060 };
-          const mapInstance = new google.maps.Map(mapRef.current, {
-            center: defaultLocation,
-            zoom: 13,
-          });
-          setMap(mapInstance);
-          setStatus('SUCCESS: Map created with existing script');
+        if (window.google && window.google.maps && window.google.maps.Map) {
+          setStatus('Google Maps API ready, creating map...');
+          createMapInstance();
+        } else {
+          setStatus('Google Maps API not fully loaded, waiting...');
+          const checkApiReady = () => {
+            if (window.google && window.google.maps && window.google.maps.Map) {
+              setStatus('Google Maps API ready, creating map...');
+              createMapInstance();
+            } else {
+              setTimeout(checkApiReady, 100);
+            }
+          };
+          checkApiReady();
         }
       } else {
         document.head.appendChild(script);

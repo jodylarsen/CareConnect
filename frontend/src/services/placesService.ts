@@ -1,5 +1,6 @@
 import { GOOGLE_MAPS_CONFIG } from '../config/google';
 import { Location } from './locationService';
+import DatabricksService from './databricksService';
 
 export interface HealthcareProvider {
   id: string;
@@ -23,6 +24,16 @@ export interface HealthcareProvider {
   distance?: number;
   placeId: string;
   businessStatus?: 'OPERATIONAL' | 'CLOSED_TEMPORARILY' | 'CLOSED_PERMANENTLY';
+  accessibility?: {
+    wheelchairAccessible?: boolean;
+    parkingAvailable?: boolean;
+    publicTransportAccess?: boolean;
+    entranceAccessible?: boolean;
+    bathroomAccessible?: boolean;
+    elevatorAccess?: boolean;
+    accessibilityRating?: number; // 1-5 scale from AI assessment
+    accessibilityNotes?: string;
+  };
 }
 
 export type ProviderType = 
@@ -43,6 +54,7 @@ export interface SearchFilters {
   priceLevel?: number[];
   isOpen?: boolean;
   keyword?: string;
+  accessibilityRequired?: boolean;
 }
 
 export interface PlaceDetails extends HealthcareProvider {
@@ -62,6 +74,13 @@ export interface PlaceDetails extends HealthcareProvider {
   services?: string[];
   accessibility?: {
     wheelchairAccessible?: boolean;
+    parkingAvailable?: boolean;
+    publicTransportAccess?: boolean;
+    entranceAccessible?: boolean;
+    bathroomAccessible?: boolean;
+    elevatorAccess?: boolean;
+    accessibilityRating?: number; // 1-5 scale from AI assessment
+    accessibilityNotes?: string;
   };
 }
 
@@ -136,21 +155,133 @@ class PlacesService {
       radius = 5000,
       minRating = 0,
       isOpen,
-      keyword
+      keyword,
+      accessibilityRequired
     } = filters;
 
-    // For now, let's use a simple approach with mock data since the new API may not be fully available
-    // This provides immediate functionality while we work on full integration
-    return this.getMockHealthcareProviders(location, type, radius);
+    // Use Google Places API to find real healthcare providers
+    let providers = await this.searchRealProviders(location, type, radius, minRating, isOpen, keyword);
+
+    // If accessibility is required, filter and enhance with AI assessment
+    if (accessibilityRequired) {
+      providers = await this.filterByAccessibility(providers);
+    }
+
+    return providers;
+  }
+
+  /**
+   * Search for healthcare providers using Google Places API
+   */
+  private async searchRealProviders(
+    location: Location,
+    type: ProviderType | 'all',
+    radius: number,
+    minRating: number = 0,
+    isOpen?: boolean,
+    keyword?: string
+  ): Promise<HealthcareProvider[]> {
+    if (!window.google?.maps?.places) {
+      throw new Error('Google Places service not available');
+    }
+
+    const service = new window.google.maps.places.PlacesService(
+      document.createElement('div')
+    );
+
+    const searchTypes = type === 'all' 
+      ? ['hospital', 'pharmacy', 'doctor', 'dentist', 'health'] 
+      : [this.getGooglePlaceType(type)];
+
+    const allProviders: HealthcareProvider[] = [];
+
+    for (const searchType of searchTypes) {
+      try {
+        const results = await this.performPlacesSearch(
+          service, 
+          location, 
+          searchType, 
+          radius, 
+          keyword
+        );
+
+        const providers = results
+          .filter(place => {
+            if (minRating > 0 && (!place.rating || place.rating < minRating)) {
+              return false;
+            }
+            if (isOpen && place.opening_hours && !place.opening_hours.isOpen?.()) {
+              return false;
+            }
+            return true;
+          })
+          .map(place => this.convertToHealthcareProvider(place, location));
+
+        allProviders.push(...providers);
+      } catch (error) {
+        console.warn(`Search failed for type ${searchType}:`, error);
+      }
+    }
+
+    // Remove duplicates based on place ID
+    const uniqueProviders = allProviders.filter((provider, index, self) => 
+      index === self.findIndex(p => p.placeId === provider.placeId)
+    );
+
+    // Sort by distance if available, then by rating
+    return uniqueProviders.sort((a, b) => {
+      if (a.distance && b.distance) {
+        return a.distance - b.distance;
+      }
+      if (a.rating && b.rating) {
+        return b.rating - a.rating;
+      }
+      return 0;
+    });
+  }
+
+  /**
+   * Perform Google Places nearby search
+   */
+  private performPlacesSearch(
+    service: google.maps.places.PlacesService,
+    location: Location,
+    type: string,
+    radius: number,
+    keyword?: string
+  ): Promise<google.maps.places.PlaceResult[]> {
+    return new Promise((resolve, reject) => {
+      const request: google.maps.places.PlaceSearchRequest = {
+        location: new window.google.maps.LatLng(location.lat, location.lng),
+        radius: radius,
+        type: type as any,
+        ...(keyword && { keyword })
+      };
+
+      service.nearbySearch(request, (results, status) => {
+        if (status === window.google.maps.places.PlacesServiceStatus.OK && results) {
+          resolve(results);
+        } else if (status === window.google.maps.places.PlacesServiceStatus.ZERO_RESULTS) {
+          resolve([]);
+        } else {
+          reject(new Error(`Places search failed: ${status}`));
+        }
+      });
+    });
   }
 
   private getMockHealthcareProviders(location: Location, type: ProviderType | 'all', radius: number): HealthcareProvider[] {
+    // Extract city name from location for more realistic provider names
+    const cityName = location.city || location.address?.split(',')[0] || 'Local';
+    const state = location.state || location.address?.split(',')[1]?.trim() || '';
+    const locationSuffix = state ? `, ${cityName}, ${state}` : `, ${cityName}`;
+    
     const mockProviders: HealthcareProvider[] = [
       {
         id: 'mock-hospital-1',
         placeId: 'mock-hospital-1',
-        name: 'City General Hospital',
-        address: '123 Medical Center Dr, Downtown',
+        name: `${cityName} General Hospital`,
+        address: `123 Medical Center Dr${locationSuffix}`,
         location: { lat: location.lat + 0.01, lng: location.lng + 0.01 },
         type: 'hospital',
         rating: 4.2,
@@ -161,8 +292,8 @@ class PlacesService {
       {
         id: 'mock-urgent-1',
         placeId: 'mock-urgent-1',
-        name: 'QuickCare Urgent Care',
-        address: '456 Health St, Midtown',
+        name: `${cityName} QuickCare Urgent Care`,
+        address: `456 Health St${locationSuffix}`,
         location: { lat: location.lat - 0.008, lng: location.lng + 0.012 },
         type: 'urgent_care',
         rating: 4.5,
@@ -173,8 +304,8 @@ class PlacesService {
       {
         id: 'mock-pharmacy-1',
         placeId: 'mock-pharmacy-1',
-        name: 'MediPlex Pharmacy',
-        address: '789 Wellness Ave, Uptown',
+        name: `${cityName} Pharmacy`,
+        address: `789 Wellness Ave${locationSuffix}`,
         location: { lat: location.lat + 0.015, lng: location.lng - 0.005 },
         type: 'pharmacy',
         rating: 4.8,
@@ -185,8 +316,8 @@ class PlacesService {
       {
         id: 'mock-clinic-1',
         placeId: 'mock-clinic-1',
-        name: 'Family Health Clinic',
-        address: '321 Care Blvd, Westside',
+        name: `${cityName} Family Health Clinic`,
+        address: `321 Care Blvd${locationSuffix}`,
         location: { lat: location.lat - 0.012, lng: location.lng - 0.008 },
         type: 'clinic',
         rating: 4.3,
@@ -197,14 +328,26 @@ class PlacesService {
       {
         id: 'mock-dentist-1',
         placeId: 'mock-dentist-1',
-        name: 'Smile Dental Care',
-        address: '654 Tooth Lane, Eastside',
+        name: `${cityName} Dental Care`,
+        address: `654 Dental Way${locationSuffix}`,
         location: { lat: location.lat + 0.006, lng: location.lng + 0.018 },
         type: 'dentist',
         rating: 4.7,
         totalRatings: 123,
         businessStatus: 'OPERATIONAL',
         distance: this.calculateDistance(location, { lat: location.lat + 0.006, lng: location.lng + 0.018 })
+      },
+      {
+        id: 'mock-clinic-2',
+        placeId: 'mock-clinic-2',
+        name: `${cityName} Walk-In Clinic`,
+        address: `888 Main St${locationSuffix}`,
+        location: { lat: location.lat - 0.005, lng: location.lng + 0.008 },
+        type: 'clinic',
+        rating: 4.1,
+        totalRatings: 92,
+        businessStatus: 'OPERATIONAL',
+        distance: this.calculateDistance(location, { lat: location.lat - 0.005, lng: location.lng + 0.008 })
       }
     ];
 
@@ -493,6 +636,166 @@ class PlacesService {
 
   private toRadians(degrees: number): number {
     return degrees * (Math.PI / 180);
+  }
+
+  /**
+   * Filter providers by accessibility requirements using Databricks AI
+   */
+  private async filterByAccessibility(providers: HealthcareProvider[]): Promise<HealthcareProvider[]> {
+    const accessibleProviders: HealthcareProvider[] = [];
+
+    for (const provider of providers) {
+      try {
+        const accessibilityInfo = await this.assessAccessibilityWithAI(provider);
+        
+        // Only include providers with good accessibility rating (4+ out of 5)
+        if (accessibilityInfo.accessibilityRating && accessibilityInfo.accessibilityRating >= 4) {
+          accessibleProviders.push({
+            ...provider,
+            accessibility: accessibilityInfo
+          });
+        }
+      } catch (error) {
+        console.warn(`Failed to assess accessibility for ${provider.name}:`, error);
+        // Include provider with default accessibility info if AI assessment fails
+        accessibleProviders.push({
+          ...provider,
+          accessibility: {
+            wheelchairAccessible: false,
+            accessibilityRating: 3,
+            accessibilityNotes: 'Accessibility information unavailable - please call to verify'
+          }
+        });
+      }
+    }
+
+    return accessibleProviders;
+  }
+
+  /**
+   * Use Databricks AI to assess accessibility of a healthcare provider
+   */
+  private async assessAccessibilityWithAI(provider: HealthcareProvider): Promise<{
+    wheelchairAccessible?: boolean;
+    parkingAvailable?: boolean;
+    publicTransportAccess?: boolean;
+    entranceAccessible?: boolean;
+    bathroomAccessible?: boolean;
+    elevatorAccess?: boolean;
+    accessibilityRating?: number;
+    accessibilityNotes?: string;
+  }> {
+    try {
+      const prompt = `
+Assess the accessibility of this healthcare facility:
+
+Facility Name: ${provider.name}
+Type: ${provider.type}
+Address: ${provider.address}
+Rating: ${provider.rating || 'Not available'}
+
+Based on the facility type, location, and name, provide an accessibility assessment including:
+- Wheelchair accessibility
+- Parking availability
+- Public transport access
+- Entrance accessibility
+- Bathroom accessibility
+- Elevator access (if multi-story)
+- Overall accessibility rating (1-5 scale)
+- Accessibility notes with specific details
+
+Respond in JSON format:
+{
+  "wheelchairAccessible": true/false,
+  "parkingAvailable": true/false,
+  "publicTransportAccess": true/false,
+  "entranceAccessible": true/false,
+  "bathroomAccessible": true/false,
+  "elevatorAccess": true/false,
+  "accessibilityRating": 4,
+  "accessibilityNotes": "Detailed accessibility information..."
+}
+
+Consider factors like:
+- Hospital/large facilities typically have better accessibility
+- Newer facilities usually comply with ADA standards
+- Urban locations often have better public transport
+- Chain facilities (CVS, Walgreens) typically have standardized accessibility
+`;
+
+      const response = await fetch(`${process.env.REACT_APP_API_BASE_URL || 'http://localhost:3001/api'}/databricks/accessibility-assessment`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          prompt,
+          provider: {
+            name: provider.name,
+            type: provider.type,
+            address: provider.address,
+            rating: provider.rating
+          }
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`API request failed: ${response.status}`);
+      }
+
+      const result = await response.json();
+      
+      // Parse JSON response from AI
+      let accessibilityData;
+      try {
+        // Extract JSON from response if it's wrapped in text
+        const jsonMatch = result.response?.match(/\{[\s\S]*\}/) || result.match(/\{[\s\S]*\}/);
+        accessibilityData = jsonMatch ? JSON.parse(jsonMatch[0]) : result;
+      } catch (parseError) {
+        console.warn('Failed to parse AI response, using fallback');
+        accessibilityData = this.getFallbackAccessibilityData(provider);
+      }
+
+      return accessibilityData;
+    } catch (error) {
+      console.warn('AI accessibility assessment failed, using fallback:', error);
+      return this.getFallbackAccessibilityData(provider);
+    }
+  }
+
+  /**
+   * Provide fallback accessibility data when AI assessment fails
+   */
+  private getFallbackAccessibilityData(provider: HealthcareProvider): {
+    wheelchairAccessible?: boolean;
+    parkingAvailable?: boolean;
+    publicTransportAccess?: boolean;
+    entranceAccessible?: boolean;
+    bathroomAccessible?: boolean;
+    elevatorAccess?: boolean;
+    accessibilityRating?: number;
+    accessibilityNotes?: string;
+  } {
+    // Basic heuristics for accessibility based on provider type
+    const isLargeFacility = ['hospital', 'urgent_care'].includes(provider.type);
+    const isChainPharmacy = provider.name.toLowerCase().includes('cvs') || 
+                           provider.name.toLowerCase().includes('walgreens') ||
+                           provider.name.toLowerCase().includes('rite aid');
+
+    return {
+      wheelchairAccessible: isLargeFacility || isChainPharmacy,
+      parkingAvailable: isLargeFacility,
+      publicTransportAccess: undefined, // Cannot determine without location analysis
+      entranceAccessible: isLargeFacility || isChainPharmacy,
+      bathroomAccessible: isLargeFacility,
+      elevatorAccess: isLargeFacility,
+      accessibilityRating: isLargeFacility ? 4 : (isChainPharmacy ? 3 : 2),
+      accessibilityNotes: isLargeFacility 
+        ? 'Large healthcare facility - typically ADA compliant with good accessibility features'
+        : isChainPharmacy 
+        ? 'Chain pharmacy - usually wheelchair accessible with basic accommodations'
+        : 'Smaller facility - accessibility may vary. Please call ahead to verify accommodations.'
+    };
   }
 }
 

@@ -1,6 +1,8 @@
 import React, { useState } from 'react';
 import { User } from '../services/auth';
 import HealthcareSearch from './HealthcareSearch';
+import SymptomChecker from './SymptomChecker';
+import TravelHealth from './TravelHealth';
 import Tests from './Tests';
 import './Dashboard.css';
 
@@ -10,14 +12,18 @@ interface DashboardProps {
 }
 
 const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
-  const [activeTab, setActiveTab] = useState<'dashboard' | 'search' | 'tests'>('dashboard');
+  const [activeTab, setActiveTab] = useState<'dashboard' | 'healthcare' | 'symptoms' | 'travel' | 'tests'>('dashboard');
 
   const renderContent = () => {
     switch (activeTab) {
       case 'tests':
         return <Tests />;
-      case 'search':
+      case 'healthcare':
         return <HealthcareSearch />;
+      case 'symptoms':
+        return <SymptomChecker />;
+      case 'travel':
+        return <TravelHealth />;
       case 'dashboard':
       default:
         return (
@@ -27,7 +33,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
               <div className="action-grid">
                 <button 
                   className="action-card"
-                  onClick={() => setActiveTab('search')}
+                  onClick={() => setActiveTab('healthcare')}
                 >
                   <span className="action-icon">🏥</span>
                   <div>
@@ -38,7 +44,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
                 
                 <button 
                   className="action-card"
-                  onClick={() => setActiveTab('search')}
+                  onClick={() => setActiveTab('symptoms')}
                 >
                   <span className="action-icon">🩺</span>
                   <div>
@@ -47,20 +53,10 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
                   </div>
                 </button>
                 
-                <button 
-                  className="action-card"
-                  onClick={() => setActiveTab('search')}
-                >
-                  <span className="action-icon">💊</span>
-                  <div>
-                    <h4>Find Pharmacy</h4>
-                    <p>Locate pharmacies for prescriptions</p>
-                  </div>
-                </button>
                 
                 <button 
                   className="action-card"
-                  onClick={() => setActiveTab('search')}
+                  onClick={() => setActiveTab('travel')}
                 >
                   <span className="action-icon">🗺️</span>
                   <div>
@@ -104,7 +100,18 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
           />
           <div>
             <h2>Welcome, {user.name}!</h2>
-            <p>{user.email}</p>
+            <div className="user-details">
+              <p>{user.email}</p>
+              {(user.age_range || user.gender) && (
+                <p className="user-demographics">
+                  {user.age_range && (
+                    <span>Age: {user.age_range.min}{user.age_range.max ? `-${user.age_range.max}` : '+'}</span>
+                  )}
+                  {user.age_range && user.gender && <span className="separator"> • </span>}
+                  {user.gender && <span>Gender: {user.gender}</span>}
+                </p>
+              )}
+            </div>
           </div>
         </div>
         <div className="header-actions">
@@ -112,13 +119,7 @@ const Dashboard: React.FC<DashboardProps> = ({ user, onLogout }) => {
             className={`tab-btn ${activeTab === 'dashboard' ? 'active' : ''}`}
             onClick={() => setActiveTab('dashboard')}
           >
-            Dashboard
-          </button>
-          <button 
-            className={`tab-btn ${activeTab === 'search' ? 'active' : ''}`}
-            onClick={() => setActiveTab('search')}
-          >
-            Healthcare Search
+            CareConnect
           </button>
           <button 
             className={`tab-btn ${activeTab === 'tests' ? 'active' : ''}`}

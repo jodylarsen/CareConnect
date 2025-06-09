@@ -6,6 +6,15 @@ export interface User {
   name: string;
   picture: string;
   verified_email: boolean;
+  given_name?: string;
+  family_name?: string;
+  gender?: string;
+  age_range?: {
+    min: number;
+    max?: number;
+  };
+  birthdate?: string;
+  locale?: string;
 }
 
 export interface AuthTokens {
@@ -115,17 +124,96 @@ class AuthService {
    * Get user information from Google API
    */
   private async getUserInfo(accessToken: string): Promise<User> {
-    const response = await fetch(GOOGLE_OAUTH_URLS.USER_INFO, {
+    // Get basic user info
+    const basicResponse = await fetch(GOOGLE_OAUTH_URLS.USER_INFO, {
       headers: {
         Authorization: `Bearer ${accessToken}`,
       },
     });
 
-    if (!response.ok) {
+    if (!basicResponse.ok) {
       throw new Error('Failed to get user information');
     }
 
-    return response.json();
+    const basicUser = await basicResponse.json();
+
+    // Try to get enhanced demographic info from People API
+    try {
+      const enhancedUser = await this.getEnhancedUserInfo(accessToken);
+      return { ...basicUser, ...enhancedUser };
+    } catch (error) {
+      console.warn('Failed to get enhanced user info:', error);
+      return basicUser;
+    }
+  }
+
+  /**
+   * Get enhanced user information from Google People API
+   */
+  private async getEnhancedUserInfo(accessToken: string): Promise<Partial<User>> {
+    const personFields = [
+      'names',
+      'emailAddresses', 
+      'genders',
+      'birthdays',
+      'ageRanges',
+      'locales'
+    ].join(',');
+
+    const response = await fetch(
+      `${GOOGLE_OAUTH_URLS.PEOPLE_API}?personFields=${personFields}`,
+      {
+        headers: {
+          Authorization: `Bearer ${accessToken}`,
+        },
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error('Failed to get enhanced user information');
+    }
+
+    const data = await response.json();
+    const enhancedInfo: Partial<User> = {};
+
+    // Extract gender
+    if (data.genders && data.genders.length > 0) {
+      enhancedInfo.gender = data.genders[0].value;
+    }
+
+    // Extract age range
+    if (data.ageRanges && data.ageRanges.length > 0) {
+      const ageRange = data.ageRanges[0];
+      enhancedInfo.age_range = {
+        min: ageRange.min || 0,
+        max: ageRange.max
+      };
+    }
+
+    // Extract birthdate
+    if (data.birthdays && data.birthdays.length > 0) {
+      const birthday = data.birthdays[0];
+      if (birthday.date) {
+        const { year, month, day } = birthday.date;
+        if (year && month && day) {
+          enhancedInfo.birthdate = `${year}-${month.toString().padStart(2, '0')}-${day.toString().padStart(2, '0')}`;
+        }
+      }
+    }
+
+    // Extract locale
+    if (data.locales && data.locales.length > 0) {
+      enhancedInfo.locale = data.locales[0].value;
+    }
+
+    // Extract detailed names
+    if (data.names && data.names.length > 0) {
+      const name = data.names[0];
+      if (name.givenName) enhancedInfo.given_name = name.givenName;
+      if (name.familyName) enhancedInfo.family_name = name.familyName;
+    }
+
+    return enhancedInfo;
   }
 
   /**

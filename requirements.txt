@@ -1,0 +1,13 @@
+# Python dependencies for serving CareConnect React app on Databricks
+# Using Python's built-in http.server module, so minimal dependencies needed
+
+# Optional: For enhanced static file serving
+# gunicorn==21.2.0
+# flask==3.0.0
+
+# For debugging and monitoring
+requests==2.31.0
+urllib3==2.1.0
+
+# For handling JSON responses from Databricks APIs
+json5==0.9.14
