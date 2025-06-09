@@ -39,6 +39,14 @@ const SimpleMapView: React.FC<SimpleMapViewProps> = ({
     }
   }, [selectedProvider, map, markerProviderMap]);
 
+  useEffect(() => {
+    if (map && userLocation) {
+      // Update map center when user location changes
+      map.setCenter(userLocation);
+      map.setZoom(13);
+    }
+  }, [userLocation, map]);
+
   const createMapInstance = () => {
     if (!mapRef.current) {
       setStatus('ERROR: Map container not found');
