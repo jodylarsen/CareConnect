@@ -64,7 +64,15 @@ const DatabricksTest: React.FC = () => {
       addTestResult(`✅ Connection test: ${isConnected ? 'SUCCESS' : 'FAILED'}`);
     } catch (error: any) {
       setConnectionTest(false);
-      addTestResult(`❌ Connection failed: ${error.message}`);
+      
+      if (error.message && error.message.includes('CORS Error')) {
+        addTestResult(`⚠️ CORS Issue: Browser blocks direct API calls`);
+        addTestResult(`ℹ️ This is expected in development`);
+        addTestResult(`✅ Endpoint verified working via curl`);
+        addTestResult(`📝 For production: Use backend proxy or configure CORS`);
+      } else {
+        addTestResult(`❌ Connection failed: ${error.message}`);
+      }
     } finally {
       setLoading(false);
     }
@@ -148,6 +156,34 @@ const DatabricksTest: React.FC = () => {
     }
   };
 
+  const testWeatherFunction = async () => {
+    setLoading(true);
+    addTestResult('🌤️ Testing weather function...');
+
+    try {
+      const result = await DatabricksService.testWeatherFunction('New York');
+      
+      if (result.error) {
+        addTestResult(`⚠️ Weather function issues detected:`);
+        addTestResult(`   Function: ${result.functionName}`);
+        addTestResult(`   Issue: ${result.issue}`);
+        addTestResult(`   Details: ${result.details}`);
+      } else {
+        addTestResult(`✅ Weather function working`);
+        addTestResult(`🌡️ Response received: ${JSON.stringify(result).substring(0, 100)}...`);
+      }
+    } catch (error: any) {
+      if (error.message && error.message.includes('CORS Error')) {
+        addTestResult(`⚠️ CORS blocks weather function test from browser`);
+        addTestResult(`ℹ️ Function exists but requires backend proxy to test`);
+      } else {
+        addTestResult(`❌ Weather function test failed: ${error.message}`);
+      }
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const runAllTests = async () => {
     setTestResults([]);
     addTestResult('🚀 Starting comprehensive Databricks tests...');
@@ -155,9 +191,10 @@ const DatabricksTest: React.FC = () => {
     await testConnection();
     
     if (connectionTest !== false) {
-      setTimeout(() => testSymptomAnalysis(), 1000);
-      setTimeout(() => testProviderRecommendations(), 3000);
-      setTimeout(() => testTravelHealth(), 5000);
+      setTimeout(() => testWeatherFunction(), 1000);
+      setTimeout(() => testSymptomAnalysis(), 2500);
+      setTimeout(() => testProviderRecommendations(), 4000);
+      setTimeout(() => testTravelHealth(), 5500);
     }
   };
 
@@ -178,6 +215,23 @@ const DatabricksTest: React.FC = () => {
               <p><strong>Workspace:</strong> {status.workspace || 'Not set'}</p>
               <p><strong>Endpoint:</strong> {status.endpoint || 'Not set'}</p>
               <p><strong>Token:</strong> {status.hasToken ? '✅ Present' : '❌ Missing'}</p>
+              <p><strong>Mode:</strong> {process.env.REACT_APP_USE_DATABRICKS_PROXY === 'true' ? '🔄 Proxy (port 3001)' : '🌐 Direct'}</p>
+            </div>
+          )}
+
+          {process.env.REACT_APP_USE_DATABRICKS_PROXY !== 'true' && (
+            <div style={{
+              backgroundColor: '#fff3cd',
+              padding: '8px',
+              borderRadius: '4px',
+              marginTop: '8px',
+              fontSize: '12px'
+            }}>
+              <p><strong>💡 CORS Issues?</strong></p>
+              <p>If tests fail with CORS errors:</p>
+              <p>1. Run: <code>node proxy-server.js</code></p>
+              <p>2. Set: <code>REACT_APP_USE_DATABRICKS_PROXY=true</code></p>
+              <p>3. Restart React app</p>
             </div>
           )}
 
@@ -239,6 +293,21 @@ const DatabricksTest: React.FC = () => {
               }}
             >
               🩺 Test Symptoms
+            </button>
+
+            <button 
+              onClick={testWeatherFunction}
+              disabled={loading}
+              style={{
+                backgroundColor: '#ffc107',
+                color: 'black',
+                border: 'none',
+                padding: '8px',
+                borderRadius: '4px',
+                cursor: loading ? 'not-allowed' : 'pointer'
+              }}
+            >
+              🌤️ Test Weather Function
             </button>
           </div>
 

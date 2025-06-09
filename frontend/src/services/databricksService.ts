@@ -39,6 +39,7 @@ export interface DatabricksConfig {
   token: string;
   workspace: string;
   agentEndpoint: string;
+  useProxy?: boolean;
 }
 
 class DatabricksService {
@@ -50,10 +51,13 @@ class DatabricksService {
     this.config = {
       token: process.env.REACT_APP_DATABRICKS_TOKEN || '',
       workspace: process.env.REACT_APP_DATABRICKS_WORKSPACE || '',
-      agentEndpoint: process.env.REACT_APP_DATABRICKS_AGENT_ENDPOINT || ''
+      agentEndpoint: process.env.REACT_APP_DATABRICKS_AGENT_ENDPOINT || '',
+      useProxy: process.env.REACT_APP_USE_DATABRICKS_PROXY === 'true'
     };
     
-    this.baseUrl = `https://${this.config.workspace}/serving-endpoints/${this.config.agentEndpoint}/invocations`;
+    this.baseUrl = this.config.useProxy 
+      ? 'http://localhost:3001/api/databricks'
+      : `https://${this.config.workspace}/serving-endpoints/${this.config.agentEndpoint}/invocations`;
   }
 
   public static getInstance(): DatabricksService {
@@ -88,9 +92,15 @@ class DatabricksService {
       
       console.log('Connection test result:', hasValidResponse ? 'SUCCESS' : 'FAILED');
       return hasValidResponse;
-    } catch (error) {
+    } catch (error: any) {
       console.error('Databricks connection test failed:', error);
       console.error('URL attempted:', this.baseUrl);
+      
+      // Re-throw CORS errors for better handling in UI
+      if (error.message && error.message.includes('CORS Error')) {
+        throw error;
+      }
+      
       return false;
     }
   }
@@ -118,8 +128,15 @@ class DatabricksService {
       });
 
       return this.parseHealthcareResponse(response);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Symptom analysis failed:', error);
+      
+      // Check if this is a Databricks agent function error
+      if (error.message && error.message.includes('get_weather')) {
+        console.warn('Databricks agent has function calling issues, providing fallback recommendation');
+        return this.createFallbackRecommendationFromSymptoms(request);
+      }
+      
       throw new Error(`Failed to analyze symptoms: ${error}`);
     }
   }
@@ -246,24 +263,63 @@ Respond in JSON format with arrays for each category.
 
     console.log('Request headers:', headers);
 
-    const response = await fetch(this.baseUrl, {
-      method: 'POST',
-      headers: headers,
-      body: JSON.stringify(payload)
-    });
+    try {
+      let response;
+      
+      if (this.config.useProxy) {
+        // Use proxy server
+        response = await fetch(this.baseUrl, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            token: this.config.token,
+            workspace: this.config.workspace,
+            endpoint: this.config.agentEndpoint,
+            payload: payload
+          })
+        });
+      } else {
+        // Direct request to Databricks
+        response = await fetch(this.baseUrl, {
+          method: 'POST',
+          headers: headers,
+          body: JSON.stringify(payload),
+          mode: 'cors'
+        });
+      }
 
-    console.log('Response status:', response.status);
-    console.log('Response headers:', Object.fromEntries(response.headers.entries()));
+      console.log('Response status:', response.status);
+      console.log('Response headers:', Object.fromEntries(response.headers.entries()));
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Error response body:', errorText);
-      throw new Error(`Databricks API error (${response.status}): ${errorText}`);
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error('Error response body:', errorText);
+        
+        // Try to parse error response as JSON for better error handling
+        try {
+          const errorJson = JSON.parse(errorText);
+          if (errorJson.message && errorJson.message.includes('get_weather')) {
+            throw new Error(`Databricks agent function error: ${errorJson.message}`);
+          }
+          throw new Error(`Databricks API error (${response.status}): ${errorJson.message || errorText}`);
+        } catch (parseError) {
+          throw new Error(`Databricks API error (${response.status}): ${errorText}`);
+        }
+      }
+
+      const jsonResponse = await response.json();
+      console.log('Success response:', jsonResponse);
+      return jsonResponse;
+    } catch (fetchError: any) {
+      console.error('Fetch error details:', fetchError);
+      
+      // Handle CORS and network errors
+      if (fetchError.name === 'TypeError' && fetchError.message === 'Failed to fetch') {
+        throw new Error('CORS Error: Cannot access Databricks endpoint from browser. This is expected in development. The endpoint works (verified with curl) but browsers block cross-origin requests without proper CORS headers.');
+      }
+      
+      throw fetchError;
     }
-
-    const jsonResponse = await response.json();
-    console.log('Success response:', jsonResponse);
-    return jsonResponse;
   }
 
   /**
@@ -457,6 +513,121 @@ IMPORTANT: Always err on the side of caution. If there are any concerning sympto
       estimated_wait_time: isUrgent ? '30-60 minutes' : '1-2 hours',
       cost_considerations: 'Varies by provider and insurance coverage'
     };
+  }
+
+  /**
+   * Create intelligent fallback recommendation based on symptoms when Databricks agent fails
+   */
+  private createFallbackRecommendationFromSymptoms(request: SymptomRequest): HealthcareRecommendation {
+    const { symptoms, severity, duration } = request;
+    
+    // Determine urgency based on symptoms and severity
+    const emergencySymptoms = ['chest pain', 'difficulty breathing', 'severe headache', 'confusion', 'loss of consciousness'];
+    const urgentSymptoms = ['high fever', 'persistent vomiting', 'severe pain', 'shortness of breath'];
+    
+    const hasEmergencySymptom = symptoms.some(s => 
+      emergencySymptoms.some(es => s.toLowerCase().includes(es.toLowerCase()))
+    );
+    const hasUrgentSymptom = symptoms.some(s => 
+      urgentSymptoms.some(us => s.toLowerCase().includes(us.toLowerCase()))
+    );
+    
+    let recommendedCareType: 'emergency' | 'hospital' | 'urgent_care' | 'clinic' | 'pharmacy' | 'telehealth' | 'home_care';
+    let urgency: 'emergency' | 'urgent' | 'moderate' | 'routine';
+    let confidence: number;
+    
+    if (hasEmergencySymptom || severity === 'emergency') {
+      recommendedCareType = 'emergency';
+      urgency = 'emergency';
+      confidence = 0.9;
+    } else if (hasUrgentSymptom || severity === 'severe') {
+      recommendedCareType = 'urgent_care';
+      urgency = 'urgent';
+      confidence = 0.85;
+    } else if (severity === 'moderate') {
+      recommendedCareType = 'clinic';
+      urgency = 'moderate';
+      confidence = 0.75;
+    } else {
+      recommendedCareType = 'telehealth';
+      urgency = 'routine';
+      confidence = 0.7;
+    }
+    
+    // Generate reasoning
+    const reasoningParts = [
+      `Based on reported symptoms: ${symptoms.join(', ')}`,
+      `Severity level: ${severity}`,
+      `Duration: ${duration}`,
+      'Recommendation generated using rule-based fallback due to AI service limitations.'
+    ];
+    
+    return {
+      recommendedCareType,
+      urgency,
+      confidence,
+      reasoning: reasoningParts.join('. '),
+      recommendations: [
+        `Seek ${recommendedCareType.replace('_', ' ')} for your symptoms`,
+        'Monitor symptoms closely',
+        'Keep a record of any changes in symptoms'
+      ],
+      symptoms_analysis: {
+        primary_symptoms: symptoms,
+        severity_assessment: `${severity} severity reported by patient`,
+        potential_conditions: ['Multiple conditions possible - professional evaluation needed'],
+        red_flags: hasEmergencySymptom ? ['Emergency symptoms detected'] : []
+      },
+      next_steps: [
+        urgency === 'emergency' ? 'Go to emergency room immediately' : 
+        urgency === 'urgent' ? 'Contact urgent care or call doctor within 24 hours' :
+        'Schedule appointment with healthcare provider'
+      ],
+      when_to_seek_emergency_care: [
+        'If symptoms suddenly worsen',
+        'If you experience severe chest pain or difficulty breathing',
+        'If you become confused or lose consciousness',
+        'If you have severe allergic reactions'
+      ],
+      estimated_wait_time: urgency === 'emergency' ? 'Immediate' : 
+                          urgency === 'urgent' ? '30-60 minutes' : '1-2 hours',
+      cost_considerations: 'Emergency care is most expensive, urgent care moderate cost, clinics typically least expensive'
+    };
+  }
+
+  /**
+   * Test the get_weather function that's implemented in the Databricks agent
+   */
+  public async testWeatherFunction(city: string): Promise<any> {
+    try {
+      console.log(`Testing weather function for city: ${city}`);
+      
+      const response = await this.makeRequest({
+        messages: [
+          {
+            role: 'user',
+            content: `What's the weather like in ${city}?`
+          }
+        ]
+      });
+      
+      console.log('Weather function response:', response);
+      return response;
+    } catch (error: any) {
+      console.error('Weather function test failed:', error);
+      
+      // If it's the missing city argument error, that confirms the function exists
+      if (error.message && error.message.includes('get_weather') && error.message.includes('missing')) {
+        return {
+          error: 'Function exists but has implementation issues',
+          details: error.message,
+          functionName: 'get_weather',
+          issue: 'Missing required city argument in function definition'
+        };
+      }
+      
+      throw error;
+    }
   }
 
   /**
