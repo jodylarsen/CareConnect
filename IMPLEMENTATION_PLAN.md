@@ -6,39 +6,41 @@ CareConnect is an AI-powered travel health assistant that provides personalized 
 ## Team Structure & Responsibilities
 
 ### Team Members
-- **Zach** - LLM Setup & Connectivity Lead
+- **Zach** - LLM Setup & Databricks Endpoint API Lead
 - **Satish** - Data Analytics & Nimble Data Lead  
-- **Joshua** - API Development Lead
+- **Joshua** - Mimilabs Data Analysis Lead
 - **Jody** - Frontend Development & Google Authentication Lead
 
 ---
 
-## Phase 1: Foundation & Infrastructure (Weeks 1-2)
+## Phase 1: Foundation & Infrastructure
 
-### Zach - LLM Setup & Connectivity
+### Zach - LLM Setup & Databricks Endpoint API
 **Primary Responsibilities:**
 - Configure LLM infrastructure in Databricks
 - Set up model endpoints and connectivity
 - Implement symptom analysis and healthcare matching algorithms
+- Build Databricks REST API endpoints for frontend integration
 
-**Week 1 Tasks:**
+**Milestone 1 Tasks:**
 - [ ] Set up Databricks ML workspace and compute clusters
 - [ ] Configure model serving endpoints for healthcare LLM
 - [ ] Implement basic symptom-to-healthcare-type mapping model
 - [ ] Create initial prompt engineering for healthcare recommendations
-- [ ] Test LLM response quality and latency
+- [ ] Set up Databricks REST API framework for frontend integration
 
-**Week 2 Tasks:**
+**Milestone 2 Tasks:**
 - [ ] Fine-tune healthcare recommendation model
 - [ ] Implement context-aware prompt engineering (location, user profile)
-- [ ] Set up model versioning and A/B testing framework
-- [ ] Create model monitoring and performance metrics
-- [ ] Document LLM API interface for Joshua's integration
+- [ ] Build REST API endpoints for LLM model access
+- [ ] Create API documentation and testing framework
+- [ ] Coordinate API interface specifications with Jody for frontend integration
 
 **Deliverables:**
 - Functional LLM endpoint in Databricks
 - Healthcare symptom analysis model
-- API specification document for model integration
+- REST API endpoints for frontend integration
+- API documentation and testing suite
 - Performance benchmarks and monitoring dashboard
 
 ### Satish - Data Analytics & Nimble Data
@@ -47,14 +49,14 @@ CareConnect is an AI-powered travel health assistant that provides personalized 
 - Create data pipelines for healthcare provider information
 - Develop data quality and enrichment processes
 
-**Week 1 Tasks:**
+**Milestone 1 Tasks:**
 - [ ] Set up Databricks workspace for data analytics
 - [ ] Ingest and explore Nimble healthcare dataset
 - [ ] Perform initial data quality assessment
 - [ ] Create data schema and catalog documentation
 - [ ] Identify data gaps and enrichment opportunities
 
-**Week 2 Tasks:**
+**Milestone 2 Tasks:**
 - [ ] Build data processing pipelines for provider information
 - [ ] Implement data cleaning and standardization processes
 - [ ] Create healthcare provider categorization and tagging
@@ -68,32 +70,33 @@ CareConnect is an AI-powered travel health assistant that provides personalized 
 - Analytics dashboard for data insights
 - Data pipeline documentation
 
-### Joshua - API Development
+### Joshua - Mimilabs Data Analysis
 **Primary Responsibilities:**
-- Build REST API to interface with Zach's LLM model
-- Create backend endpoints for frontend integration
-- Implement data processing and business logic
+- Analyze and process Mimilabs healthcare data
+- Create data pipelines for Mimilabs dataset integration
+- Develop data quality and enrichment processes for Mimilabs data
+- Support healthcare provider recommendations with Mimilabs insights
 
-**Week 1 Tasks:**
-- [ ] Set up Databricks REST API framework
-- [ ] Design API architecture and endpoint specifications
-- [ ] Implement basic health assessment endpoint structure
-- [ ] Create initial API documentation and testing framework
-- [ ] Design API interface for frontend integration
+**Milestone 1 Tasks:**
+- [ ] Set up Databricks workspace for Mimilabs data analysis
+- [ ] Ingest and explore Mimilabs healthcare dataset
+- [ ] Perform initial data quality assessment on Mimilabs data
+- [ ] Create data schema and catalog documentation for Mimilabs
+- [ ] Identify data integration opportunities with Nimble dataset
 
-**Week 2 Tasks:**
-- [ ] Integrate with Zach's LLM model endpoints
-- [ ] Build user profile and session management backend
-- [ ] Create provider search and recommendation endpoints
-- [ ] Implement API rate limiting and error handling
-- [ ] Coordinate with Jody on frontend API requirements
+**Milestone 2 Tasks:**
+- [ ] Build data processing pipelines for Mimilabs provider information
+- [ ] Implement data cleaning and standardization processes
+- [ ] Create healthcare provider categorization and tagging for Mimilabs data
+- [ ] Develop data quality metrics and monitoring
+- [ ] Coordinate data integration with Satish's Nimble analysis
 
 **Deliverables:**
-- Functional REST API with core endpoints
-- Backend services for frontend integration
-- API documentation and testing suite
-- Integration specifications with LLM model
-- Coordinated API interface with frontend team
+- Clean, processed Mimilabs healthcare dataset
+- Data quality assessment report for Mimilabs data
+- Provider categorization and metadata schema
+- Data integration specifications with Nimble dataset
+- Analytics insights from Mimilabs data analysis
 
 ### Jody - Frontend Development & Google Authentication
 **Primary Responsibilities:**
@@ -101,19 +104,19 @@ CareConnect is an AI-powered travel health assistant that provides personalized 
 - Implement Google OAuth 2.0 authentication flow
 - Create Google Maps and location services integration
 
-**Week 1 Tasks:**
+**Milestone 1 Tasks:**
 - [ ] Set up frontend development environment in Databricks
 - [ ] Configure Google OAuth 2.0 authentication system
 - [ ] Create initial user interface wireframes and design
 - [ ] Set up Google Maps JavaScript API integration
 - [ ] Implement basic user authentication flow
 
-**Week 2 Tasks:**
+**Milestone 2 Tasks:**
 - [ ] Build main application interface and user experience
 - [ ] Integrate Google location services and maps display
 - [ ] Implement user profile and session management frontend
 - [ ] Create healthcare provider search and display interfaces
-- [ ] Coordinate frontend-backend API integration with Joshua
+- [ ] Coordinate frontend-backend API integration with Zach
 
 **Deliverables:**
 - Functional frontend application with user authentication
@@ -124,10 +127,10 @@ CareConnect is an AI-powered travel health assistant that provides personalized 
 
 ---
 
-## Phase 2: Core Feature Development (Weeks 3-4)
+## Phase 2: Core Feature Development
 
-### Zach - Advanced LLM Features
-**Week 3-4 Tasks:**
+### Zach - Advanced LLM & API Features
+**Milestone 3 Tasks:**
 - [ ] Implement chronic condition management recommendations
 - [ ] Add accessibility-aware healthcare matching
 - [ ] Create travel-specific health advisory features
@@ -135,23 +138,23 @@ CareConnect is an AI-powered travel health assistant that provides personalized 
 - [ ] Add multi-language support for healthcare recommendations
 
 ### Satish - Enhanced Data Analytics
-**Week 3-4 Tasks:**
+**Milestone 3 Tasks:**
 - [ ] Integrate additional healthcare data sources
 - [ ] Build provider rating and review analysis
 - [ ] Create accessibility and quality scoring algorithms
 - [ ] Implement real-time data updates and refresh pipelines
 - [ ] Develop predictive analytics for healthcare needs
 
-### Joshua - Advanced API Features
-**Week 3-4 Tasks:**
-- [ ] Implement advanced search and filtering capabilities
-- [ ] Add real-time location tracking and updates
-- [ ] Create personalized recommendation algorithms
-- [ ] Build emergency contact and alert systems
-- [ ] Implement offline capability and data caching
+### Joshua - Advanced Mimilabs Data Features
+**Milestone 3 Tasks:**
+- [ ] Integrate additional Mimilabs data sources and endpoints
+- [ ] Build advanced analytics and provider comparison features
+- [ ] Create data visualization dashboards for Mimilabs insights
+- [ ] Implement real-time data updates and refresh pipelines
+- [ ] Develop predictive analytics using Mimilabs dataset
 
 ### Jody - Advanced Frontend Features
-**Week 3-4 Tasks:**
+**Milestone 3 Tasks:**
 - [ ] Implement advanced user interface features and responsiveness
 - [ ] Add real-time location tracking and map interactions
 - [ ] Create personalized dashboard and user preferences
@@ -160,7 +163,7 @@ CareConnect is an AI-powered travel health assistant that provides personalized 
 
 ---
 
-## Phase 3: Testing & Optimization (Weeks 5-6)
+## Phase 3: Testing & Optimization
 
 ### All Team Members
 **Shared Responsibilities:**
@@ -181,9 +184,9 @@ CareConnect is an AI-powered travel health assistant that provides personalized 
 - [ ] Analytics accuracy verification
 
 ### Joshua Focus:
-- [ ] API performance and scalability testing
-- [ ] Integration testing with external services
-- [ ] Error handling and resilience testing
+- [ ] Mimilabs data quality and analytics validation
+- [ ] Data integration testing with Nimble dataset
+- [ ] Analytics accuracy and performance verification
 
 ### Jody Focus:
 - [ ] Frontend performance optimization and testing
@@ -194,34 +197,28 @@ CareConnect is an AI-powered travel health assistant that provides personalized 
 
 ## Integration Points & Dependencies
 
-### Zach → Joshua Integration
-- **Interface:** LLM model endpoints in Databricks
-- **Data Format:** JSON-based symptom analysis requests/responses
-- **Timeline:** Week 2 integration, Week 3-4 enhancement
-- **Key Deliverable:** Model API specification document
+### Zach → Jody Integration
+- **Interface:** Databricks REST API endpoints to Frontend application
+- **Data Format:** JSON-based LLM responses and healthcare recommendations
+- **Timeline:** Phase 1 setup, Phase 2-3 enhancement
+- **Key Deliverable:** Direct API integration between LLM endpoints and frontend
 
-### Satish → Joshua Integration  
-- **Interface:** Healthcare provider data APIs
-- **Data Format:** Structured provider information with metadata
-- **Timeline:** Week 2 basic integration, Week 3-4 enhanced features
-- **Key Deliverable:** Provider data schema and API endpoints
+### Satish & Joshua → Zach Integration
+- **Interface:** Combined healthcare data for model training/enhancement
+- **Data Format:** Processed healthcare provider data from both Nimble and Mimilabs
+- **Timeline:** Phase 1 initial data sharing, ongoing refinement
+- **Key Deliverable:** Comprehensive healthcare dataset for model improvement
 
-### Satish → Zach Integration
-- **Interface:** Healthcare data for model training/enhancement
-- **Data Format:** Processed healthcare provider and condition data
-- **Timeline:** Week 1-2 initial data sharing, ongoing refinement
-- **Key Deliverable:** Clean healthcare dataset for model improvement
-
-### Joshua → Jody Integration
-- **Interface:** Backend API to Frontend application
-- **Data Format:** JSON-based REST API responses
-- **Timeline:** Week 2 integration, Week 3-4 enhancement
-- **Key Deliverable:** Frontend-backend integration and user experience
+### Satish ↔ Joshua Integration
+- **Interface:** Cross-dataset analysis and data harmonization
+- **Data Format:** Standardized healthcare provider information
+- **Timeline:** Phase 1 coordination, Phase 2 advanced integration
+- **Key Deliverable:** Unified healthcare provider dataset and analytics
 
 ### Google APIs → Jody Integration
 - **Interface:** Google OAuth 2.0, Maps, and Location services
 - **Data Format:** OAuth tokens, location data, map displays
-- **Timeline:** Week 1-2 setup, ongoing enhancement
+- **Timeline:** Phase 1 setup, ongoing enhancement
 - **Key Deliverable:** Complete Google services integration
 
 ---
@@ -321,10 +318,10 @@ CareConnect is an AI-powered travel health assistant that provides personalized 
 2. **Each Team Member:** Review implementation plan and confirm task assignments
 3. **Zach:** Begin LLM infrastructure setup
 4. **Satish:** Start Nimble data exploration and analysis
-5. **Joshua:** Initialize API framework setup
+5. **Joshua:** Initialize Mimilabs data analysis setup
 6. **Jody:** Set up frontend development environment and begin Google authentication setup
 
-### Week 1 Goals
+### Milestone 1 Goals
 - Complete foundation setup for all team members
 - Establish working development environments
 - Begin core component development
